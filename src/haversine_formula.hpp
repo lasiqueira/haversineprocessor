@@ -1,4 +1,6 @@
 
+#define EARTH_RAD 6372.8
+
 double Square(double A);
 double RadiansFromDegrees(double Degrees);
 // NOTE(casey): EarthRadius is generally expected to be 6372.8
