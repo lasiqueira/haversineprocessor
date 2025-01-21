@@ -56,7 +56,7 @@ uint64_t GetCPUFreqEstimate(void)
 	uint64_t milliseconds_to_wait = PERF_TIME_TO_WAIT;
 
 	uint64_t os_freq = GetOSTimerFreq();
-	printf("    OS Freq: %llu (reported)\n", os_freq);
+	//printf("	OS Freq: %llu (reported)\n", os_freq);
 
 	uint64_t cpu_start = ReadCPUTimer();
 	uint64_t os_start = ReadOSTimer();
@@ -88,11 +88,11 @@ double percent(uint64_t part, uint64_t whole)
 
 void PrintPerf(Perf& perf)
 {
-    std::cout << "Total time: " << perf.total_time_ << " Cpu freq(estimated): " <<  perf.cpu_freq_ << std::endl;
-    std::cout << "Start time: " << perf.start_up_ << " (" << std::fixed << std::setprecision(2) << percent(perf.start_up_, perf.total_time_) << "%)" << std::endl;
-    std::cout << "Read time: " << perf.read_ << " (" << std::fixed << std::setprecision(2) << percent(perf.read_, perf.total_time_) << "%)" << std::endl;
-    std::cout << "Parse time: " << perf.parse_ << " (" << std::fixed << std::setprecision(2) << percent(perf.parse_, perf.total_time_) << "%)" << std::endl;
-    std::cout << "Misc setup time: " << perf.misc_setup_ << " (" << std::fixed << std::setprecision(2) << percent(perf.misc_setup_, perf.total_time_) << "%)" << std::endl;
-    std::cout << "Sum time: " << perf.sum_ << " (" << std::fixed << std::setprecision(2) << percent(perf.sum_, perf.total_time_) << "%)" << std::endl;
-    std::cout << "Misc output time: " << perf.misc_output_ << " (" << std::fixed << std::setprecision(2) << percent(perf.misc_output_, perf.total_time_) << "%)" << std::endl;
+    std::cout << "	Total time: " << perf.total_time_*1000/perf.cpu_freq_ << " ms - Cpu freq(estimated): " << perf.cpu_freq_/1000000 << " MHz" << std::endl;
+    std::cout << "	Start time: " << perf.start_up_ << " (" << std::fixed << std::setprecision(2) << percent(perf.start_up_, perf.total_time_) << "%)" << std::endl;
+    std::cout << "	Read time: " << perf.read_ << " (" << std::fixed << std::setprecision(2) << percent(perf.read_, perf.total_time_) << "%)" << std::endl;
+    std::cout << "	Parse time: " << perf.parse_ << " (" << std::fixed << std::setprecision(2) << percent(perf.parse_, perf.total_time_) << "%)" << std::endl;
+    std::cout << "	Misc setup time: " << perf.misc_setup_ << " (" << std::fixed << std::setprecision(2) << percent(perf.misc_setup_, perf.total_time_) << "%)" << std::endl;
+    std::cout << "	Sum time: " << perf.sum_ << " (" << std::fixed << std::setprecision(2) << percent(perf.sum_, perf.total_time_) << "%)" << std::endl;
+    std::cout << "	Misc output time: " << perf.misc_output_ << " (" << std::fixed << std::setprecision(2) << percent(perf.misc_output_, perf.total_time_) << "%)" << std::endl;
 }

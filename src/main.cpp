@@ -15,48 +15,33 @@ struct Point
     double y1;
 };
 Perf g_perf;
-uint64_t ReadPointsJson(std::string filename, std::vector<Point>& points);
+uint64_t ReadPointsJson(std::string filename, std::vector<Point>& points, std::string& json);
+void ProcessJson(std::string& json_content, std::vector<Point>& points);
+long double SumHaversine(const std::vector<Point>& points);
 
-uint64_t ReadPointsJson(std::string filename, std::vector<Point>& points)
+
+void ProcessJson(std::string& json_content, std::vector<Point>& points)
 {
-    g_perf.read_ = ReadCPUTimer();
-    std::ifstream file(filename, std::ios::binary | std::ios::ate);
-    if (!file.is_open())
-    {
-        std::cerr << "Could not open file: " << filename << std::endl;
-        return 0;
-    }
-
-    uint64_t file_size = file.tellg();
-    file.seekg(0, std::ios::beg);
-    std::string line;
-    std::string json_content;
-    while (std::getline(file, line))
-    {
-        json_content += line;
-    }
-    g_perf.read_ = ReadCPUTimer() - g_perf.read_;
-
     g_perf.parse_ = ReadCPUTimer();
     size_t pos = json_content.find("\"points\":");
     if (pos == std::string::npos)
     {
-        std::cerr << "Invalid JSON format: missing \"points\" key" << std::endl;
-        return 0;
+        std::cerr << "  Invalid JSON format: missing \"points\" key" << std::endl;
+        return;
     }
 
     pos = json_content.find('[', pos);
     if (pos == std::string::npos)
     {
-        std::cerr << "Invalid JSON format: missing opening bracket for points array" << std::endl;
-        return 0;
+        std::cerr << "  Invalid JSON format: missing opening bracket for points array" << std::endl;
+        return;
     }
 
     size_t end_pos = json_content.find(']', pos);
     if (end_pos == std::string::npos)
     {
-        std::cerr << "Invalid JSON format: missing closing bracket for points array" << std::endl;
-        return 0;
+        std::cerr << "  Invalid JSON format: missing closing bracket for points array" << std::endl;
+        return;
     }
 
     std::string points_array = json_content.substr(pos + 1, end_pos - pos - 1);
@@ -98,9 +83,39 @@ uint64_t ReadPointsJson(std::string filename, std::vector<Point>& points)
         }
         points.emplace_back(x0, y0, x1, y1);
     }
-    
-    file.close();
     g_perf.parse_ = ReadCPUTimer() - g_perf.parse_;
+ }
+long double SumHaversine(const std::vector<Point>& points)
+{
+    g_perf.sum_ = ReadCPUTimer();
+	long double sum = 0;
+	for (auto& point : points)
+	{
+		sum += ReferenceHaversine(point.x0, point.y0, point.x1, point.y1, EARTH_RAD);
+	}
+	g_perf.sum_ = ReadCPUTimer() - g_perf.sum_;
+	return sum;
+}
+uint64_t ReadPointsJson(std::string filename, std::vector<Point>& points, std::string& json)
+{
+    g_perf.read_ = ReadCPUTimer();
+    std::ifstream file(filename, std::ios::binary | std::ios::ate);
+    if (!file.is_open())
+    {
+        std::cerr << "  Could not open file: " << filename << std::endl;
+        return 0;
+    }
+
+    uint64_t file_size = file.tellg();
+    file.seekg(0, std::ios::beg);
+    std::string line;
+    while (std::getline(file, line))
+    {
+        json += line;
+    }
+    g_perf.read_ = ReadCPUTimer() - g_perf.read_;
+
+	file.close();
     return file_size;
 }
 int main(int argc, char* argv[])
@@ -109,7 +124,7 @@ int main(int argc, char* argv[])
     g_perf.start_up_ = ReadCPUTimer();
     if(argc < 2)
     {
-        std::cerr << "Usage: " << argv[0] << " <filename.json>" << std::endl;
+        std::cerr << "      Usage: " << argv[0] << " <filename.json>" << std::endl;
         return 1;
     }
     std::string filename = argv[1];
@@ -117,8 +132,14 @@ int main(int argc, char* argv[])
     
     g_perf.start_up_ = ReadCPUTimer() - g_perf.start_up_;
     
-    uint64_t file_size = ReadPointsJson(filename, points);
-    
+    std::string json;
+    uint64_t file_size = ReadPointsJson(filename, points, json);
+	if (file_size == 0)
+	{
+		return 1;
+	}
+	
+    ProcessJson(json, points);
     std::vector<double> haversine_vals;
     haversine_vals.reserve(points.size());
     
@@ -129,13 +150,9 @@ int main(int argc, char* argv[])
         haversine_vals.push_back(haversine_val);
     }
     g_perf.misc_setup_ = ReadCPUTimer() - g_perf.misc_setup_;
-    long double sum = 0;
-    g_perf.sum_ = ReadCPUTimer();
-    for(auto& val : haversine_vals)
-    {
-        sum += val;
-    }
-    g_perf.sum_ = ReadCPUTimer() - g_perf.sum_;
+   
+    long double sum = SumHaversine(points);
+    
     
     g_perf.misc_output_ = ReadCPUTimer();
     std::cout << "File size: " << file_size << " bytes" << std::endl;
