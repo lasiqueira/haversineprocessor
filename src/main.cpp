@@ -17,7 +17,7 @@ struct Point
 Perf g_perf;
 uint64_t ReadPointsJson(std::string filename, std::vector<Point>& points, std::string& json);
 void ProcessJson(std::string& json_content, std::vector<Point>& points);
-long double SumHaversine(const std::vector<Point>& points);
+long double SumHaversine(const std::vector<double>& haversine_vals);
 
 
 void ProcessJson(std::string& json_content, std::vector<Point>& points)
@@ -85,13 +85,13 @@ void ProcessJson(std::string& json_content, std::vector<Point>& points)
     }
     g_perf.parse_ = ReadCPUTimer() - g_perf.parse_;
  }
-long double SumHaversine(const std::vector<Point>& points)
+long double SumHaversine(const std::vector<double>& haversine_vals)
 {
     g_perf.sum_ = ReadCPUTimer();
 	long double sum = 0;
-	for (auto& point : points)
+	for (auto& val : haversine_vals)
 	{
-		sum += ReferenceHaversine(point.x0, point.y0, point.x1, point.y1, EARTH_RAD);
+        sum += val;
 	}
 	g_perf.sum_ = ReadCPUTimer() - g_perf.sum_;
 	return sum;
@@ -151,7 +151,7 @@ int main(int argc, char* argv[])
     }
     g_perf.misc_setup_ = ReadCPUTimer() - g_perf.misc_setup_;
    
-    long double sum = SumHaversine(points);
+    long double sum = SumHaversine(haversine_vals);
     
     
     g_perf.misc_output_ = ReadCPUTimer();
