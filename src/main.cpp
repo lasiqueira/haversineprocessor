@@ -14,7 +14,6 @@ struct Point
     double x1;
     double y1;
 };
-Perf g_perf;
 uint64_t ReadPointsJson(std::string filename, std::vector<Point>& points, std::string& json);
 void ProcessJson(std::string& json_content, std::vector<Point>& points);
 double SumHaversine(const std::vector<double>& haversine_vals);
@@ -22,7 +21,7 @@ double SumHaversine(const std::vector<double>& haversine_vals);
 
 void ProcessJson(std::string& json_content, std::vector<Point>& points)
 {
-    g_perf.parse_ = ReadCPUTimer();
+    TimeFunction;
     size_t pos = json_content.find("\"points\":");
     if (pos == std::string::npos)
     {
@@ -83,22 +82,20 @@ void ProcessJson(std::string& json_content, std::vector<Point>& points)
         }
         points.emplace_back(x0, y0, x1, y1);
     }
-    g_perf.parse_ = ReadCPUTimer() - g_perf.parse_;
  }
 double SumHaversine(const std::vector<double>& haversine_vals)
 {
-    g_perf.sum_ = ReadCPUTimer();
+    TimeFunction;
 	double sum = 0;
 	for (auto& val : haversine_vals)
 	{
         sum += val;
 	}
-	g_perf.sum_ = ReadCPUTimer() - g_perf.sum_;
 	return sum;
 }
 uint64_t ReadPointsJson(std::string filename, std::vector<Point>& points, std::string& json)
 {
-    g_perf.read_ = ReadCPUTimer();
+    TimeFunction;
     std::ifstream file(filename, std::ios::binary | std::ios::ate);
     if (!file.is_open())
     {
@@ -113,15 +110,13 @@ uint64_t ReadPointsJson(std::string filename, std::vector<Point>& points, std::s
     {
         json += line;
     }
-    g_perf.read_ = ReadCPUTimer() - g_perf.read_;
-
 	file.close();
     return file_size;
 }
 int main(int argc, char* argv[])
 {
-    g_perf.cpu_freq_ = GetCPUFreqEstimate();
-    g_perf.start_up_ = ReadCPUTimer();
+
+    BeginProfile();
     if(argc < 2)
     {
         std::cerr << "      Usage: " << argv[0] << " <filename.json>" << std::endl;
@@ -129,9 +124,7 @@ int main(int argc, char* argv[])
     }
     std::string filename = argv[1];
     std::vector<Point> points;
-    
-    g_perf.start_up_ = ReadCPUTimer() - g_perf.start_up_;
-    
+        
     std::string json;
     uint64_t file_size = ReadPointsJson(filename, points, json);
 	if (file_size == 0)
@@ -143,28 +136,19 @@ int main(int argc, char* argv[])
     std::vector<double> haversine_vals;
     haversine_vals.reserve(points.size());
     
-    g_perf.misc_setup_ = ReadCPUTimer();
     for(auto& point : points)
     {    
         double haversine_val = ReferenceHaversine(point.x0, point.y0, point.x1, point.y1, EARTH_RAD);
         haversine_vals.push_back(haversine_val);
     }
-    g_perf.misc_setup_ = ReadCPUTimer() - g_perf.misc_setup_;
    
     long double sum = SumHaversine(haversine_vals);
     
-    
-    g_perf.misc_output_ = ReadCPUTimer();
     std::cout << "File size: " << file_size << " bytes" << std::endl;
     std::cout << "Points: " << points.size() << std::endl; 
     std::cout << std::fixed << std::setprecision(16) << "Haversine sum: " << sum << std::endl;
 
-
-    g_perf.misc_output_ = ReadCPUTimer() - g_perf.misc_output_;
-
-    g_perf.total_time_ = g_perf.read_ + g_perf.parse_ + g_perf.sum_ + g_perf.misc_output_ + g_perf.misc_setup_ + g_perf.start_up_;
-    
-    PrintPerf(g_perf);
+    EndAndPrintProfile();
     
     return 0;
 

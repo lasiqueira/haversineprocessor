@@ -1,7 +1,9 @@
 #pragma once
 #include <cstdint>
 #include <iomanip>
+#include <iostream>
 #define PERF_TIME_TO_WAIT 100
+#define ArrayCount(array) (sizeof(array) / sizeof((array)[0]))
 
 #if _WIN32
 
@@ -37,4 +39,40 @@ uint64_t GetOSTimerFreq();
 uint64_t ReadCPUTimer();
 uint64_t GetCPUFreqEstimate();
 void PrintPerf(Perf& perf);
-double percent(uint64_t part, uint64_t whole);
+double Percent(uint64_t part, uint64_t whole);
+
+struct ProfileAnchor
+{
+    uint64_t tsc_elapsed_;
+    uint64_t hit_count_;
+    char const* label_;
+};
+
+struct Profiler
+{
+    ProfileAnchor anchors_[4096];
+
+    uint64_t start_tsc_;
+    uint64_t end_tsc_;
+};
+static Profiler g_profiler;
+
+struct ProfileBlock
+{
+    char const* label_;
+    uint64_t start_tsc_;
+    uint32_t anchor_index_;
+
+    ProfileBlock(char const* label, uint32_t anchor_index);
+
+    ~ProfileBlock();
+};
+
+#define NameConcat2(A, B) A##B
+#define NameConcat(A, B) NameConcat2(A, B)
+#define TimeBlock(Name) ProfileBlock NameConcat(Block, __LINE__)(Name, __COUNTER__ + 1);
+#define TimeFunction TimeBlock(__func__)
+
+void PrintTimeElapsed(uint64_t total_tsc_elapsed, ProfileAnchor* anchor);
+void BeginProfile();
+void EndAndPrintProfile();
