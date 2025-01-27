@@ -58,7 +58,6 @@ void ProcessJson(std::string& json_content, std::vector<Point>& points)
         double y1 = 0;
         std::istringstream point_ss(point_str);
         std::string token;
-
         while (std::getline(point_ss, token, ','))
         {
             size_t colon_pos = token.find(':');
@@ -115,7 +114,6 @@ uint64_t ReadPointsJson(std::string filename, std::vector<Point>& points, std::s
 }
 int main(int argc, char* argv[])
 {
-
     BeginProfile();
     if(argc < 2)
     {
@@ -138,6 +136,7 @@ int main(int argc, char* argv[])
     
     for(auto& point : points)
     {    
+		TimeBlock("Haversine");
         double haversine_val = ReferenceHaversine(point.x0, point.y0, point.x1, point.y1, EARTH_RAD);
         haversine_vals.push_back(haversine_val);
     }

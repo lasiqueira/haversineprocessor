@@ -99,16 +99,22 @@ void PrintPerf(Perf& perf)
 
 ProfileBlock::ProfileBlock(char const* label, uint32_t anchor_index)
 {
+	parent_index_ = g_profiler_parent;
 	anchor_index_ = anchor_index;
 	label_ = label;
+	g_profiler_parent = anchor_index_;
 	start_tsc_ = ReadCPUTimer();
 }
 
 ProfileBlock::~ProfileBlock()
 {
 	uint64_t elapsed = ReadCPUTimer() - start_tsc_;
+	g_profiler_parent = parent_index_;
 
+	ProfileAnchor* parent = g_profiler.anchors_ + parent_index_;
 	ProfileAnchor* anchor = g_profiler.anchors_ + anchor_index_;
+	
+	parent->tsc_elapsed_children_ += elapsed;
 	anchor->tsc_elapsed_ += elapsed;
 	++anchor->hit_count_;
 
@@ -121,9 +127,16 @@ ProfileBlock::~ProfileBlock()
 
 void PrintTimeElapsed(uint64_t total_tsc_elapsed, ProfileAnchor* anchor)
 {
-	uint64_t elapsed = anchor->tsc_elapsed_;
+	uint64_t elapsed = anchor->tsc_elapsed_ - anchor->tsc_elapsed_children_;
 	double percent = 100.0 * ((double)elapsed / (double)total_tsc_elapsed);
-	printf("  %s[%llu]: %llu (%.2f%%)\n", anchor->label_, anchor->hit_count_, elapsed, percent);
+	printf("  %s[%llu]: %llu (%.2f%%", anchor->label_, anchor->hit_count_, elapsed, percent);
+
+	if (anchor->tsc_elapsed_children_)
+	{
+		double percent_with_children = 100.0 * ((double)anchor->tsc_elapsed_ / (double)total_tsc_elapsed);
+		printf(", %.2f%% w/children", percent_with_children);
+	}
+	printf(")\n");
 }
 
 void BeginProfile()
