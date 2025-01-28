@@ -18,7 +18,6 @@ uint64_t ReadPointsJson(std::string filename, std::vector<Point>& points, std::s
 void ProcessJson(std::string& json_content, std::vector<Point>& points);
 double SumHaversine(const std::vector<double>& haversine_vals);
 
-
 void ProcessJson(std::string& json_content, std::vector<Point>& points)
 {
     TimeFunction;
@@ -46,7 +45,7 @@ void ProcessJson(std::string& json_content, std::vector<Point>& points)
     std::string points_array = json_content.substr(pos + 1, end_pos - pos - 1);
     std::istringstream ss(points_array);
     std::string point_str;
-
+    
     while (std::getline(ss, point_str, '{'))
     {
         if (point_str.find('}') == std::string::npos)

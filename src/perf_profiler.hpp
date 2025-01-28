@@ -43,8 +43,8 @@ double Percent(uint64_t part, uint64_t whole);
 
 struct ProfileAnchor
 {
-    uint64_t tsc_elapsed_;
-    uint64_t tsc_elapsed_children_;
+    uint64_t tsc_elapsed_exclusive_;
+    uint64_t tsc_elapsed_inclusive_;
     uint64_t hit_count_;
     char const* label_;
 };
@@ -62,6 +62,7 @@ static uint32_t g_profiler_parent;
 struct ProfileBlock
 {
     char const* label_;
+    uint64_t old_tsc_elapsed_inclusive_;
     uint64_t start_tsc_;
     uint32_t anchor_index_;
 	uint32_t parent_index_;

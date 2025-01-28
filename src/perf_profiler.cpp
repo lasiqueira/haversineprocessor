@@ -102,6 +102,10 @@ ProfileBlock::ProfileBlock(char const* label, uint32_t anchor_index)
 	parent_index_ = g_profiler_parent;
 	anchor_index_ = anchor_index;
 	label_ = label;
+	
+	ProfileAnchor* anchor = g_profiler.anchors_ + anchor_index_;
+	old_tsc_elapsed_inclusive_ = anchor->tsc_elapsed_inclusive_;
+	
 	g_profiler_parent = anchor_index_;
 	start_tsc_ = ReadCPUTimer();
 }
@@ -114,8 +118,9 @@ ProfileBlock::~ProfileBlock()
 	ProfileAnchor* parent = g_profiler.anchors_ + parent_index_;
 	ProfileAnchor* anchor = g_profiler.anchors_ + anchor_index_;
 	
-	parent->tsc_elapsed_children_ += elapsed;
-	anchor->tsc_elapsed_ += elapsed;
+	parent->tsc_elapsed_exclusive_ -= elapsed;
+	anchor->tsc_elapsed_exclusive_ += elapsed;
+	anchor->tsc_elapsed_inclusive_ = old_tsc_elapsed_inclusive_ + elapsed;
 	++anchor->hit_count_;
 
 	/* NOTE(casey): This write happens every time solely because there is no
@@ -127,13 +132,12 @@ ProfileBlock::~ProfileBlock()
 
 void PrintTimeElapsed(uint64_t total_tsc_elapsed, ProfileAnchor* anchor)
 {
-	uint64_t elapsed = anchor->tsc_elapsed_ - anchor->tsc_elapsed_children_;
-	double percent = 100.0 * ((double)elapsed / (double)total_tsc_elapsed);
-	printf("  %s[%llu]: %llu (%.2f%%", anchor->label_, anchor->hit_count_, elapsed, percent);
+	double percent = 100.0 * ((double)anchor->tsc_elapsed_exclusive_ / (double)total_tsc_elapsed);
+	printf("  %s[%llu]: %llu (%.2f%%", anchor->label_, anchor->hit_count_, anchor->tsc_elapsed_exclusive_, percent);
 
-	if (anchor->tsc_elapsed_children_)
+	if (anchor->tsc_elapsed_inclusive_ != anchor->tsc_elapsed_exclusive_)
 	{
-		double percent_with_children = 100.0 * ((double)anchor->tsc_elapsed_ / (double)total_tsc_elapsed);
+		double percent_with_children = 100.0 * ((double)anchor->tsc_elapsed_inclusive_ / (double)total_tsc_elapsed);
 		printf(", %.2f%% w/children", percent_with_children);
 	}
 	printf(")\n");
@@ -159,7 +163,7 @@ void EndAndPrintProfile()
 	for (uint32_t anchor_index = 0; anchor_index < ArrayCount(g_profiler.anchors_); ++anchor_index)
 	{
 		ProfileAnchor* anchor = g_profiler.anchors_ + anchor_index;
-		if (anchor->tsc_elapsed_)
+		if (anchor->tsc_elapsed_inclusive_)
 		{
 			PrintTimeElapsed(total_cpu_elapsed, anchor);
 		}
