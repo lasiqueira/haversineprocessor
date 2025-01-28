@@ -132,12 +132,14 @@ int main(int argc, char* argv[])
     ProcessJson(json, points);
     std::vector<double> haversine_vals;
     haversine_vals.reserve(points.size());
-    
-    for(auto& point : points)
-    {    
-		TimeBlock("Haversine");
-        double haversine_val = ReferenceHaversine(point.x0, point.y0, point.x1, point.y1, EARTH_RAD);
-        haversine_vals.push_back(haversine_val);
+    {
+        TimeBlock("Haversine");
+        for (auto& point : points)
+        {
+
+            double haversine_val = ReferenceHaversine(point.x0, point.y0, point.x1, point.y1, EARTH_RAD);
+            haversine_vals.push_back(haversine_val);
+        }
     }
    
     long double sum = SumHaversine(haversine_vals);

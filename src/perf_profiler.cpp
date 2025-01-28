@@ -85,6 +85,7 @@ double Percent(uint64_t part, uint64_t whole)
     return (static_cast<double>(part) / static_cast<double>(whole)) * 100.0;
 }
 
+#if PROFILER
 
 void PrintPerf(Perf& perf)
 {
@@ -103,7 +104,7 @@ ProfileBlock::ProfileBlock(char const* label, uint32_t anchor_index)
 	anchor_index_ = anchor_index;
 	label_ = label;
 	
-	ProfileAnchor* anchor = g_profiler.anchors_ + anchor_index_;
+	ProfileAnchor* anchor = g_profile_anchors + anchor_index_;
 	old_tsc_elapsed_inclusive_ = anchor->tsc_elapsed_inclusive_;
 	
 	g_profiler_parent = anchor_index_;
@@ -115,8 +116,8 @@ ProfileBlock::~ProfileBlock()
 	uint64_t elapsed = ReadCPUTimer() - start_tsc_;
 	g_profiler_parent = parent_index_;
 
-	ProfileAnchor* parent = g_profiler.anchors_ + parent_index_;
-	ProfileAnchor* anchor = g_profiler.anchors_ + anchor_index_;
+	ProfileAnchor* parent = g_profile_anchors + parent_index_;
+	ProfileAnchor* anchor = g_profile_anchors + anchor_index_;
 	
 	parent->tsc_elapsed_exclusive_ -= elapsed;
 	anchor->tsc_elapsed_exclusive_ += elapsed;
@@ -142,6 +143,18 @@ void PrintTimeElapsed(uint64_t total_tsc_elapsed, ProfileAnchor* anchor)
 	}
 	printf(")\n");
 }
+void PrintAnchorData(uint64_t total_cpu_elapsed)
+{
+	for (uint32_t anchor_index = 0; anchor_index < ArrayCount(g_profile_anchors); ++anchor_index)
+	{
+		ProfileAnchor* anchor = g_profile_anchors + anchor_index;
+		if (anchor->tsc_elapsed_inclusive_)
+		{
+			PrintTimeElapsed(total_cpu_elapsed, anchor);
+		}
+	}
+}
+#endif
 
 void BeginProfile()
 {
@@ -160,12 +173,5 @@ void EndAndPrintProfile()
 		printf("\nTotal time: %0.4fms (CPU freq %llu)\n", 1000.0 * (double)total_cpu_elapsed / (double)cpu_freq, cpu_freq);
 	}
 
-	for (uint32_t anchor_index = 0; anchor_index < ArrayCount(g_profiler.anchors_); ++anchor_index)
-	{
-		ProfileAnchor* anchor = g_profiler.anchors_ + anchor_index;
-		if (anchor->tsc_elapsed_inclusive_)
-		{
-			PrintTimeElapsed(total_cpu_elapsed, anchor);
-		}
-	}
+	PrintAnchorData(total_cpu_elapsed);
 }

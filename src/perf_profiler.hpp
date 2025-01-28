@@ -21,7 +21,22 @@
 #endif
 
 #endif
-struct Perf 
+
+#ifndef PROFILER
+#define PROFILER 1
+#endif
+
+
+
+uint64_t GetOSTimerFreq();
+uint64_t ReadOSTimer();
+uint64_t GetOSTimerFreq();
+uint64_t ReadCPUTimer();
+uint64_t GetCPUFreqEstimate();
+
+#if PROFILER
+
+struct Perf
 {
     uint64_t total_time_;
     uint64_t cpu_freq_;
@@ -32,12 +47,6 @@ struct Perf
     uint64_t sum_;
     uint64_t misc_output_;
 };
-
-uint64_t GetOSTimerFreq();
-uint64_t ReadOSTimer();
-uint64_t GetOSTimerFreq();
-uint64_t ReadCPUTimer();
-uint64_t GetCPUFreqEstimate();
 void PrintPerf(Perf& perf);
 double Percent(uint64_t part, uint64_t whole);
 
@@ -49,14 +58,7 @@ struct ProfileAnchor
     char const* label_;
 };
 
-struct Profiler
-{
-    ProfileAnchor anchors_[4096];
-
-    uint64_t start_tsc_;
-    uint64_t end_tsc_;
-};
-static Profiler g_profiler;
+static ProfileAnchor g_profile_anchors[4096];
 static uint32_t g_profiler_parent;
 
 struct ProfileBlock
@@ -72,11 +74,27 @@ struct ProfileBlock
     ~ProfileBlock();
 };
 
+void PrintAnchorData(uint64_t total_cpu_elapsed);
+void PrintTimeElapsed(uint64_t total_tsc_elapsed, ProfileAnchor* anchor);
+
 #define NameConcat2(A, B) A##B
 #define NameConcat(A, B) NameConcat2(A, B)
 #define TimeBlock(Name) ProfileBlock NameConcat(Block, __LINE__)(Name, __COUNTER__ + 1);
-#define TimeFunction TimeBlock(__func__)
+#define ProfilerEndOfCompilationUnit static_assert(__COUNTER__ < ArrayCount(GlobalProfilerAnchors), "Number of profile points exceeds size of profiler::Anchors array")
+#else
 
-void PrintTimeElapsed(uint64_t total_tsc_elapsed, ProfileAnchor* anchor);
+#define TimeBlock(...)
+#define PrintAnchorData(...)
+#define ProfilerEndOfCompilationUnit
+
+#endif
+
+#define TimeFunction TimeBlock(__func__)
+struct Profiler
+{
+    uint64_t start_tsc_;
+    uint64_t end_tsc_;
+};
+static Profiler g_profiler;
 void BeginProfile();
 void EndAndPrintProfile();
