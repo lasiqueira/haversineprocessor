@@ -2,37 +2,11 @@
 #include <cstdint>
 #include <iomanip>
 #include <iostream>
-#define PERF_TIME_TO_WAIT 100
 #define ArrayCount(array) (sizeof(array) / sizeof((array)[0]))
-
-#if _WIN32
-
-#include <intrin.h>
-#include <windows.h>
-
-#else
-
-#include <sys/time.h>
-
-#if defined(__x86_64__) || defined(_M_X64) || defined(__i386__)
-
-#include <x86intrin.h>
-
-#endif
-
-#endif
 
 #ifndef PROFILER
 #define PROFILER 1
 #endif
-
-
-
-uint64_t GetOSTimerFreq();
-uint64_t ReadOSTimer();
-uint64_t GetOSTimerFreq();
-uint64_t ReadCPUTimer();
-uint64_t GetCPUFreqEstimate();
 
 #if PROFILER
 
@@ -80,7 +54,7 @@ void PrintTimeElapsed(uint64_t total_tsc_elapsed, ProfileAnchor* anchor);
 #define NameConcat2(A, B) A##B
 #define NameConcat(A, B) NameConcat2(A, B)
 #define TimeBlock(Name) ProfileBlock NameConcat(Block, __LINE__)(Name, __COUNTER__ + 1);
-#define ProfilerEndOfCompilationUnit static_assert(__COUNTER__ < ArrayCount(GlobalProfilerAnchors), "Number of profile points exceeds size of profiler::Anchors array")
+#define ProfilerEndOfCompilationUnit static_assert(__COUNTER__ < ArrayCount(g_profiler_anchors), "Number of profile points exceeds size of profiler::anchors_ array")
 #else
 
 #define TimeBlock(...)
