@@ -20,7 +20,7 @@ double SumHaversine(const std::vector<double>& haversine_vals);
 
 void ProcessJson(std::string& json_content, std::vector<Point>& points)
 {
-    TimeFunction;
+    TimeBandwidth(__func__, points.size() * sizeof(Point));
     size_t pos = json_content.find("\"points\":");
     if (pos == std::string::npos)
     {
@@ -83,7 +83,7 @@ void ProcessJson(std::string& json_content, std::vector<Point>& points)
  }
 double SumHaversine(const std::vector<double>& haversine_vals)
 {
-    TimeFunction;
+    TimeBandwidth(__func__, haversine_vals.size() * sizeof(double));
 	double sum = 0;
 	for (auto& val : haversine_vals)
 	{
@@ -104,9 +104,12 @@ uint64_t ReadPointsJson(std::string filename, std::vector<Point>& points, std::s
     uint64_t file_size = file.tellg();
     file.seekg(0, std::ios::beg);
     std::string line;
-    while (std::getline(file, line))
-    {
-        json += line;
+    {   
+		TimeBandwidth("Read file", file_size);
+        while (std::getline(file, line))
+        {
+            json += line;
+        }
     }
 	file.close();
     return file_size;
@@ -133,7 +136,7 @@ int main(int argc, char* argv[])
     std::vector<double> haversine_vals;
     haversine_vals.reserve(points.size());
     {
-        TimeBlock("Haversine");
+        TimeBandwidth("Haversine", points.size() * sizeof(Point));
         for (auto& point : points)
         {
 
