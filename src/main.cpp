@@ -102,15 +102,21 @@ uint64_t ReadPointsJson(std::string filename, std::vector<Point>& points, std::s
     }
 
     uint64_t file_size = file.tellg();
+
+    std::vector<char> buffer(file_size);
+
     file.seekg(0, std::ios::beg);
     std::string line;
     {   
 		TimeBandwidth("Read file", file_size);
-        while (std::getline(file, line))
+        if (!file.read(buffer.data(), file_size)) 
         {
-            json += line;
+            std::cerr << "  Could not read file: " << filename << std::endl;
+            return 0;
         }
-    }
+
+    }  
+    json = std::string(buffer.begin(), buffer.end());
 	file.close();
     return file_size;
 }
