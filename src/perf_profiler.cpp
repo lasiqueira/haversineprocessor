@@ -4,6 +4,9 @@
 
 #if PROFILER
 
+ProfileAnchor g_profile_anchors[4096]; // Define the global variable
+uint32_t g_profiler_parent = 0; // Define the global variable
+
 double Percent(uint64_t part, uint64_t whole)
 {
 	if (whole == 0) return 0.0;

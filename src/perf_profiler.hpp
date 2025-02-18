@@ -37,8 +37,8 @@ struct ProfileAnchor
     char const* label_;
 };
 
-static ProfileAnchor g_profile_anchors[4096];
-static uint32_t g_profiler_parent;
+extern ProfileAnchor g_profile_anchors[4096];
+extern uint32_t g_profiler_parent;
 
 struct ProfileBlock
 {
