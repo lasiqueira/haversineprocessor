@@ -6,6 +6,7 @@
 
 ProfileAnchor g_profile_anchors[4096]; // Define the global variable
 uint32_t g_profiler_parent = 0; // Define the global variable
+uint32_t g_profiler_anchor_count = 0; // Define the global variable
 
 double Percent(uint64_t part, uint64_t whole)
 {
@@ -94,6 +95,9 @@ void PrintAnchorData(uint64_t total_cpu_elapsed, uint64_t timer_freq)
 	}
 }
 #endif
+
+Profiler g_profiler;
+
 uint64_t EstimateBlockTimerFreq()
 {
 	(void)&EstimateBlockTimerFreq; // NOTE(casey): This has to be voided here to prevent compilers from warning us that it is not used

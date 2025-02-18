@@ -39,6 +39,7 @@ struct ProfileAnchor
 
 extern ProfileAnchor g_profile_anchors[4096];
 extern uint32_t g_profiler_parent;
+extern uint32_t g_profiler_anchor_count;
 
 struct ProfileBlock
 {
@@ -58,8 +59,8 @@ void PrintTimeElapsed(uint64_t total_tsc_elapsed, uint64_t timer_freq, ProfileAn
 
 #define NameConcat2(A, B) A##B
 #define NameConcat(A, B) NameConcat2(A, B)
-#define TimeBandwidth(Name, ByteCount) ProfileBlock NameConcat(Block, __LINE__)(Name, __COUNTER__ + 1, ByteCount);
-#define ProfilerEndOfCompilationUnit static_assert(__COUNTER__ < ArrayCount(g_profiler_anchors), "Number of profile points exceeds size of profiler::anchors_ array")
+#define TimeBandwidth(Name, ByteCount) ProfileBlock NameConcat(Block, __LINE__)(Name, ++g_profiler_anchor_count, ByteCount);
+#define ProfilerEndOfCompilationUnit static_assert(g_profiler_anchor_countc< ArrayCount(g_profiler_anchors), "Number of profile points exceeds size of profiler::anchors_ array")
 #else
 
 #define TimeBandwidth(...)
@@ -75,7 +76,7 @@ struct Profiler
     uint64_t start_tsc_;
     uint64_t end_tsc_;
 };
-static Profiler g_profiler;
+extern Profiler g_profiler;
 uint64_t EstimateBlockTimerFreq();
 void BeginProfile();
 void EndAndPrintProfile();
