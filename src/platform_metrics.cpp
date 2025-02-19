@@ -15,7 +15,26 @@ uint64_t ReadOSTimer()
 	QueryPerformanceCounter(&value);
 	return value.QuadPart;
 }
+OsMetrics g_metrics;
 
+uint64_t ReadOSPageFaultCount()
+{
+	PROCESS_MEMORY_COUNTERS_EX memory_counters = {};
+    memory_counters.cb = sizeof(memory_counters);
+    GetProcessMemoryInfo(g_metrics.process_handle_, (PROCESS_MEMORY_COUNTERS *)&memory_counters, sizeof(memory_counters));
+    
+    uint64_t result = memory_counters.PageFaultCount;
+    return result;
+}
+
+void InitializeOSMetrics()
+{
+    if(!g_metrics.initialized_)
+    {
+        g_metrics.initialized_ = true;
+        g_metrics.process_handle = OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, FALSE, GetCurrentProcessId());
+    }
+}
 #else
 
 uint64_t GetOSTimerFreq()
@@ -30,6 +49,26 @@ uint64_t ReadOSTimer()
 
 	uint64_t result = GetOSTimerFreq() * (uint64_t)value.tv_sec + (uint64_t)value.tv_usec;
 	return result;
+}
+
+uint64_t ReadOSPageFaultCount()
+{
+    // NOTE(casey): The course materials are not tested on MacOS/Linux.
+    // This code was contributed to the public github. It may or may not work
+    // for your system.
+    
+    struct rusage usage = {};
+    getrusage(RUSAGE_SELF, &usage);
+    
+    // ru_minflt  the number of page faults serviced without any I/O activity.
+    // ru_majflt  the number of page faults serviced that required I/O activity.
+    uint64_t result = usage.ru_minflt + usage.ru_majflt;
+    
+    return result;
+}
+
+void InitializeOSMetrics()
+{
 }
 
 #endif

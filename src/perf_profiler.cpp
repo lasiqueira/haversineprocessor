@@ -1,6 +1,7 @@
 #include <iostream>
 #include "perf_profiler.hpp"
 #include "platform_metrics.hpp"
+#include "helper.hpp"
 
 #if PROFILER
 

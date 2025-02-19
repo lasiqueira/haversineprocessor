@@ -1,6 +1,7 @@
 #include <iostream>
 #include "repetition_tester.hpp"
 #include "platform_metrics.hpp"
+#include "helper.hpp"
 
 double SecondsFromCpuTime(double cpu_time, uint64_t cpu_timer_freq)
 {
@@ -13,41 +14,45 @@ double SecondsFromCpuTime(double cpu_time, uint64_t cpu_timer_freq)
     return result;
 }
 
-void PrintTime(char const *label, double cpu_time,  uint64_t cpu_timer_freq, uint64_t byte_count)
+void PrintValue(char const *label, RepetitionValue value,  uint64_t cpu_timer_freq)
 {
-    printf("%s: %.0f", label, cpu_time);
+    uint64_t test_count = value.e[RepetitionValueType::TESTCOUNT];
+    double divisor = test_count ? (double)test_count : 1;
+    
+    double e[RepetitionValueType::COUNT];
+    for(uint32_t e_index = 0; e_index < ArrayCount(e); ++e_index)
+    {
+        e[e_index] = (double)value.e[e_index] / divisor;
+    }
+    
+    printf("%s: %.0f", label, e[RepetitionValueType::CPUTIMER]);
     if(cpu_timer_freq)
     {
-        double seconds = SecondsFromCpuTime(cpu_time, cpu_timer_freq);
-        printf(" (%fms)", 1000.0f * seconds);
+        double seconds = SecondsFromCpuTime(e[RepetitionValueType::CPUTIMER], cpu_timer_freq);
+        printf(" (%fms)", 1000.0f*seconds);
     
-        if(byte_count)
+        if(e[RepetitionValueType::BYTECOUNT] > 0)
         {
             double gigabyte = (1024.0f * 1024.0f * 1024.0f);
-            double best_bandwidth = byte_count / (gigabyte * seconds);
-            printf(" %fgb/s", best_bandwidth);
+            double bandwidth = e[RepetitionValueType::BYTECOUNT] / (gigabyte * seconds);
+            printf(" %fgb/s", bandwidth);
         }
     }
-}
 
-void PrintTime(char const *label, uint64_t cpu_time,  uint64_t cpu_timer_freq, uint64_t byte_count)
-{
-    PrintTime(label, (double)cpu_time, cpu_timer_freq, byte_count);
+    if(e[RepetitionValueType::MEMPAGEFAULTS] > 0)
+    {
+        printf(" PF: %0.4f (%0.4fk/fault)", e[RepetitionValueType::MEMPAGEFAULTS], e[RepetitionValueType::BYTECOUNT] / (e[RepetitionValueType::MEMPAGEFAULTS] * 1024.0));
+    }
 }
 
 void PrintResults(const RepetitionTestResults &results, uint64_t cpu_timer_freq, uint64_t byte_count)
 {
-    PrintTime("Min", (double)results.min_time_, cpu_timer_freq, byte_count);
+    PrintValue("Min", results.min_, cpu_timer_freq);
     printf("\n");
-    
-    PrintTime("Max", (double)results.max_time_, cpu_timer_freq, byte_count);
+    PrintValue("Max", results.max_, cpu_timer_freq);
     printf("\n");
-    
-    if(results.test_count_)
-    {
-        PrintTime("Avg", (double)results.total_time_ / (double)results.test_count_, cpu_timer_freq, byte_count);
-        printf("\n");
-    }
+    PrintValue("Avg", results.total_, cpu_timer_freq);
+    printf("\n");
 }
 
 void Error(RepetitionTester &tester, char const *error_message)
@@ -64,7 +69,7 @@ void NewTestWave(RepetitionTester &tester, uint64_t target_processed_byte_count,
         tester.target_processed_byte_count_ = target_processed_byte_count;
         tester.cpu_timer_freq_ = cpu_timer_freq;
         tester.print_new_minimums_ = true;
-        tester.results_.min_time_ = (double)-1;
+        tester.results_.min_.e[RepetitionValueType::CPUTIMER] = (double)-1;
     }
     else if(tester.mode_ == TestMode::COMPLETED)
     {
@@ -88,24 +93,31 @@ void NewTestWave(RepetitionTester &tester, uint64_t target_processed_byte_count,
 void BeginTime(RepetitionTester &tester)
 {
     ++tester.open_block_count_;
-    tester.time_accumulated_on_this_test_ -= ReadCPUTimer();
+    auto& accum = tester.accumulated_on_this_test_;
+    accum.e[RepetitionValueType::MEMPAGEFAULTS] -= ReadOSPageFaultCount();
+    accum.e[RepetitionValueType::CPUTIMER] -= ReadCPUTimer();
 }
 
 void EndTime(RepetitionTester &tester)
 {
+    auto& accum = tester.accumulated_on_this_test_;
+    accum.e[RepetitionValueType::MEMPAGEFAULTS] += ReadOSPageFaultCount();
+    accum.e[RepetitionValueType::CPUTIMER] += ReadCPUTimer();
+    
     ++tester.close_block_count_;
-    tester.time_accumulated_on_this_test_ += ReadCPUTimer();
 }
 
 void CountBytes(RepetitionTester &tester, uint64_t byte_count)
 {
-    tester.bytes_accumulated_on_this_test_ += byte_count;
+    auto& accum = tester.accumulated_on_this_test_;
+    accum.e[RepetitionValueType::BYTECOUNT] += byte_count;
 }
 
 bool IsTesting(RepetitionTester &tester)
 {
     if(tester.mode_ == TestMode::TESTING)
     {
+        auto& accum = tester.accumulated_on_this_test_;
         uint64_t current_time = ReadCPUTimer();
         
         if(tester.open_block_count_) // NOTE(casey): We don't count tests that had no timing blocks - we assume they took some other path
@@ -115,7 +127,7 @@ bool IsTesting(RepetitionTester &tester)
                 Error(tester, "Unbalanced BeginTime/EndTime");
             }
             
-            if(tester.bytes_accumulated_on_this_test_ != tester.target_processed_byte_count_)
+            if(accum.e[RepetitionValueType::BYTECOUNT] != tester.target_processed_byte_count_)
             {
                 Error(tester, "Processed byte count mismatch");
             }
@@ -123,32 +135,36 @@ bool IsTesting(RepetitionTester &tester)
             if(tester.mode_ == TestMode::TESTING)
             {
                 RepetitionTestResults &results = tester.results_;
-                uint64_t elapsed_time = tester.time_accumulated_on_this_test_;
-                results.test_count_ += 1;
-                results.total_time_ += elapsed_time;
-                if(results.max_time_ < elapsed_time)
+                
+                accum.e[RepetitionValueType::TESTCOUNT] = 1;
+                
+                for(uint32_t e_index = 0; e_index < ArrayCount(accum.e); ++e_index)
                 {
-                    results.max_time_ = elapsed_time;
+                    results.total_.e[e_index] += accum.e[e_index];
                 }
                 
-                if(results.min_time_ > elapsed_time)
+                if(results.max_.e[RepetitionValueType::CPUTIMER] < accum.e[RepetitionValueType::CPUTIMER])
                 {
-                    results.min_time_ = elapsed_time;
+                    results.max_ = accum;
+                }
+                
+                if(results.min_.e[RepetitionValueType::CPUTIMER] > accum.e[RepetitionValueType::CPUTIMER])
+                {
+                    results.min_ = accum;
                     
                     // NOTE(casey): Whenever we get a new minimum time, we reset the clock to the full trial time
                     tester.tests_started_at_ = current_time;
                     
                     if(tester.print_new_minimums_)
                     {
-                        PrintTime("Min", results.min_time_, tester.cpu_timer_freq_, tester.bytes_accumulated_on_this_test_);
-                        printf("               \r");
+                        PrintValue("Min", results.min_, tester.cpu_timer_freq_);
+                        printf("                                   \r");
                     }
                 }
                 
                 tester.open_block_count_ = 0;
                 tester.close_block_count_ = 0;
-                tester.time_accumulated_on_this_test_ = 0;
-                tester.bytes_accumulated_on_this_test_ = 0;
+                tester.accumulated_on_this_test_ = {};
             }
         }
         

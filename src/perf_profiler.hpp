@@ -2,7 +2,6 @@
 #include <cstdint>
 #include <iomanip>
 #include <iostream>
-#define ArrayCount(array) (sizeof(array) / sizeof((array)[0]))
 
 #ifndef PROFILER
 #define PROFILER 1

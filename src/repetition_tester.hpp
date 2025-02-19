@@ -9,12 +9,27 @@ enum TestMode : uint32_t
     ERROR,
 };
 
+enum RepetitionValueType
+{
+    TESTCOUNT,
+    
+    CPUTIMER,
+    MEMPAGEFAULTS,
+    BYTECOUNT,
+    
+    COUNT,
+};
+
+struct RepetitionValue
+{
+    uint64_t e[RepetitionValueType::COUNT];
+};
+
 struct RepetitionTestResults
 {
-    uint64_t test_count_;
-    uint64_t total_time_;
-    uint64_t max_time_;
-    uint64_t min_time_;
+    RepetitionValue total_;
+    RepetitionValue min_;
+    RepetitionValue max_;
 };
 
 struct RepetitionTester
@@ -28,15 +43,13 @@ struct RepetitionTester
     bool print_new_minimums_;
     uint32_t open_block_count_;
     uint32_t close_block_count_;
-    uint64_t time_accumulated_on_this_test_;
-    uint64_t bytes_accumulated_on_this_test_;
 
+    RepetitionValue accumulated_on_this_test_;
     RepetitionTestResults results_;
 };
 
 double SecondsFromCpuTime(double cpu_time, uint64_t cpu_timer_freq);
-void PrintTime(char const *label, double cpu_time,  uint64_t cpu_timer_freq, uint64_t byte_count);
-void PrintTime(char const *label, uint64_t cpu_time, uint64_t cpu_timer_freq, uint64_t byte_count);
+void PrintValue(char const *label, RepetitionValue value, uint64_t cpu_timer_freq);
 void PrintResults(const RepetitionTestResults &results, uint64_t cpu_timer_freq, uint64_t byte_count);
 void Error(RepetitionTester &tester, char const *error_message);
 void NewTestWave(RepetitionTester &tester, uint64_t target_processed_byte_count, uint64_t cpu_timer_freq, uint32_t seconds_to_try = 10);
