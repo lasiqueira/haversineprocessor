@@ -1,5 +1,7 @@
 #include "platform_metrics.hpp"
 
+
+OsPlatform g_platform;
 #if _WIN32
 
 uint64_t GetOSTimerFreq()
@@ -15,13 +17,13 @@ uint64_t ReadOSTimer()
 	QueryPerformanceCounter(&value);
 	return value.QuadPart;
 }
-OsMetrics g_metrics;
+
 
 uint64_t ReadOSPageFaultCount()
 {
 	PROCESS_MEMORY_COUNTERS_EX memory_counters = {};
     memory_counters.cb = sizeof(memory_counters);
-    GetProcessMemoryInfo(g_metrics.process_handle_, (PROCESS_MEMORY_COUNTERS *)&memory_counters, sizeof(memory_counters));
+    GetProcessMemoryInfo(g_platform.process_handle_, (PROCESS_MEMORY_COUNTERS *)&memory_counters, sizeof(memory_counters));
     
     uint64_t result = memory_counters.PageFaultCount;
     return result;
@@ -29,10 +31,11 @@ uint64_t ReadOSPageFaultCount()
 
 void InitializeOSMetrics()
 {
-    if(!g_metrics.initialized_)
+    if(!g_platform.initialized_)
     {
-        g_metrics.initialized_ = true;
-        g_metrics.process_handle = OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, FALSE, GetCurrentProcessId());
+        g_platform.initialized_ = true;
+        g_platform.process_handle_ = OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, FALSE, GetCurrentProcessId());
+		g_platform.cpu_timer_freq_ = GetOSTimerFreq();
     }
 }
 #else
@@ -69,6 +72,11 @@ uint64_t ReadOSPageFaultCount()
 
 void InitializeOSMetrics()
 {
+	if (!g_platform.initialized_)
+	{
+		g_platform.initialized_ = true;
+		g_platform.cpu_timer_freq_ = GetOSTimerFreq();
+	}
 }
 
 #endif

@@ -6,12 +6,14 @@
 #include <windows.h>
 #include <psapi.h>
 
-struct OsMetrics
+struct OsPlatform
 {
     bool initialized_;
+    uint64_t large_page_size_;
     HANDLE process_handle_;
+    uint64_t cpu_timer_freq_;
 };
-extern OsMetrics g_metrics;
+
 #else
 
 #include <sys/time.h>
@@ -21,10 +23,14 @@ extern OsMetrics g_metrics;
 #include <x86intrin.h>
 
 #endif
-
+struct OsPlatform
+{
+    bool initialized_;
+    uint64_t cpu_timer_freq_;
+};
 #endif
 #define PERF_TIME_TO_WAIT 100
-
+extern OsPlatform g_platform;
 uint64_t GetOSTimerFreq();
 uint64_t ReadOSTimer();
 uint64_t ReadCPUTimer();

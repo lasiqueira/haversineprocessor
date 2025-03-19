@@ -6,6 +6,12 @@
 #include <iomanip>
 #include "haversine_formula.hpp"
 #include "perf_profiler.hpp"
+#include "custom_memory_allocator.hpp"
+
+#define CustomString std::basic_string<char, std::char_traits<char>, CustomMemoryAllocator<char>>
+#define CustomVector(type) std::vector<type, CustomMemoryAllocator<type>>
+#define CustomStringStream std::basic_istringstream<char, std::char_traits<char>, CustomMemoryAllocator<char>>
+
 
 struct Point
 {
@@ -14,41 +20,41 @@ struct Point
     double x1;
     double y1;
 };
-uint64_t ReadPointsJson(std::string filename, std::vector<Point>& points, std::string& json);
-void ProcessJson(std::string& json_content, std::vector<Point>& points);
-double SumHaversine(const std::vector<double>& haversine_vals);
+uint64_t ReadPointsJson(std::string filename, CustomVector(Point)& points, CustomString& json);
+void ProcessJson(CustomString& json_content, CustomVector(Point)& points);
+double SumHaversine(const CustomVector(double)& haversine_vals);
 
-void ProcessJson(std::string& json_content, std::vector<Point>& points)
+void ProcessJson(CustomString& json_content, CustomVector(Point)& points)
 {
     TimeBandwidth(__func__, points.size() * sizeof(Point));
     size_t pos = json_content.find("\"points\":");
-    if (pos == std::string::npos)
+    if (pos == CustomString::npos)
     {
         std::cerr << "  Invalid JSON format: missing \"points\" key" << std::endl;
         return;
     }
 
     pos = json_content.find('[', pos);
-    if (pos == std::string::npos)
+    if (pos == CustomString::npos)
     {
         std::cerr << "  Invalid JSON format: missing opening bracket for points array" << std::endl;
         return;
     }
 
     size_t end_pos = json_content.find(']', pos);
-    if (end_pos == std::string::npos)
+    if (end_pos == CustomString::npos)
     {
         std::cerr << "  Invalid JSON format: missing closing bracket for points array" << std::endl;
         return;
     }
 
-    std::string points_array = json_content.substr(pos + 1, end_pos - pos - 1);
-    std::istringstream ss(points_array);
+    CustomString points_array(json_content.begin() + pos + 1, json_content.begin() + end_pos);
+    CustomStringStream ss(points_array);
     std::string point_str;
     
     while (std::getline(ss, point_str, '{'))
     {
-        if (point_str.find('}') == std::string::npos)
+        if (point_str.find('}') == CustomString::npos)
             continue;
 
         double x0 = 0;
@@ -81,7 +87,7 @@ void ProcessJson(std::string& json_content, std::vector<Point>& points)
         points.emplace_back(x0, y0, x1, y1);
     }
  }
-double SumHaversine(const std::vector<double>& haversine_vals)
+double SumHaversine(const CustomVector(double)& haversine_vals)
 {
     TimeBandwidth(__func__, haversine_vals.size() * sizeof(double));
 	double sum = 0;
@@ -91,10 +97,10 @@ double SumHaversine(const std::vector<double>& haversine_vals)
 	}
 	return sum;
 }
-uint64_t ReadPointsJson(std::string filename, std::vector<Point>& points, std::string& json)
+uint64_t ReadPointsJson(std::string filename, CustomVector(Point)& points, CustomString& json)
 {
     TimeFunction;
-    std::ifstream file(filename, std::ios::binary | std::ios::ate);
+    std::ifstream file(filename.c_str(), std::ios::binary | std::ios::ate);
     if (!file.is_open())
     {
         std::cerr << "  Could not open file: " << filename << std::endl;
@@ -103,7 +109,7 @@ uint64_t ReadPointsJson(std::string filename, std::vector<Point>& points, std::s
 
     uint64_t file_size = file.tellg();
 
-    std::vector<char> buffer(file_size);
+    CustomVector(char) buffer(file_size);
 
     file.seekg(0, std::ios::beg);
     std::string line;
@@ -116,7 +122,7 @@ uint64_t ReadPointsJson(std::string filename, std::vector<Point>& points, std::s
         }
 
     }  
-    json = std::string(buffer.begin(), buffer.end());
+    json = CustomString(buffer.begin(), buffer.end());
 	file.close();
     return file_size;
 }
@@ -129,9 +135,9 @@ int main(int argc, char* argv[])
         return 1;
     }
     std::string filename = argv[1];
-    std::vector<Point> points;
+    CustomVector(Point) points;
         
-    std::string json;
+    CustomString json;
     uint64_t file_size = ReadPointsJson(filename, points, json);
 	if (file_size == 0)
 	{
@@ -139,7 +145,7 @@ int main(int argc, char* argv[])
 	}
 	
     ProcessJson(json, points);
-    std::vector<double> haversine_vals;
+    CustomVector(double) haversine_vals;
     haversine_vals.reserve(points.size());
     {
         TimeBandwidth("Haversine", points.size() * sizeof(Point));
