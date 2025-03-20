@@ -17,6 +17,8 @@ public:
     CustomMemoryAllocator() = default;
     T* allocate(std::size_t n);
     void deallocate(T* p, std::size_t n);
+    bool operator==(const CustomMemoryAllocator&) const noexcept { return true; }
+    bool operator!=(const CustomMemoryAllocator&) const noexcept { return false; }
 private:
     static inline bool use_large_pages_ = false;
     void* AllocateLargePages(std::size_t size);
@@ -31,26 +33,34 @@ private:
 template <typename T>
 T* CustomMemoryAllocator<T>::allocate(std::size_t n)
 {
-    {
-        std::size_t size = n * sizeof(T);
-        void* ptr = AllocateLargePages(size);
-        // Fallback to normal allocation if large pages fail
-        if (!ptr) {
-            #ifdef _WIN32
-            ptr = _aligned_malloc(size, alignof(T));
-            #elif defined(__linux__) || defined(__APPLE__)
-            if (posix_memalign(&ptr, alignof(T), size) != 0) {
-                ptr = nullptr;
-            }
-            #endif
-        }
+    std::size_t size = n * sizeof(T);
+    void* ptr = AllocateLargePages(size);
 
+    // If large page allocation failed, fallback to normal allocation
+    if (!ptr) {
+        #ifdef _WIN32
+        ptr = _aligned_malloc(size, alignof(T));
         if (!ptr) {
             throw std::bad_alloc();
         }
-
-        return static_cast<T*>(ptr);
+        #elif defined(__APPLE__)
+        // Use posix_memalign() and fallback to malloc() if needed
+        if (posix_memalign(&ptr, alignof(T), size) != 0) {
+            ptr = malloc(size);
+            if (!ptr) {
+                throw std::bad_alloc();
+            }
+        }
+        #elif defined(__linux__)
+        // Use mmap() for normal allocations
+        ptr = mmap(nullptr, size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+        if (ptr == MAP_FAILED) {
+            throw std::bad_alloc();
+        }
+        #endif
     }
+
+    return static_cast<T*>(ptr);
 }
 
 template <typename T>
@@ -59,9 +69,14 @@ void CustomMemoryAllocator<T>::deallocate(T* p, std::size_t n)
     std::size_t size = n * sizeof(T);
     if (use_large_pages_) {
         DeallocateLargePages(p, size);
-    }
-    else {
-        std::free(p);
+    } else {
+        #if defined(__APPLE__)
+        free(p);  // Use normal free() on macOS
+        #elif defined(__linux__)
+        munmap(p, size);
+        #elif defined(_WIN32)
+        _aligned_free(p);
+        #endif
     }
 }
 
