@@ -1,9 +1,7 @@
 #include <vector>
 #include <iostream>
 #include <string>
-#include <fstream>
 #include <sstream>
-#include <iomanip>
 #include "haversine_formula.hpp"
 #include "perf_profiler.hpp"
 #include "custom_memory_allocator.hpp"
@@ -102,18 +100,19 @@ uint64_t ReadPointsJson(std::string filename, CustomString& json)
 {
     TimeFunction;
 
-    std::ifstream file(filename.c_str(), std::ios::binary | std::ios::ate);
-    if (!file.is_open())
+    FILE* file = fopen(filename.c_str(), "rb");
+    if (!file)
     {
         std::cerr << "  Could not open file: " << filename << std::endl;
         return 0;
     }
 
-    uint64_t file_size = static_cast<uint64_t>(file.tellg());
-    file.seekg(0, std::ios::beg);
+    fseek(file, 0, SEEK_END);
+    uint64_t file_size = static_cast<uint64_t>(ftell(file));
+    fseek(file, 0, SEEK_SET);
+    json.reserve(file_size); // Reserve space for the JSON content
 
-    constexpr std::size_t CHUNK_SIZE = 8 * 1024 * 1024; // 8MB
-
+    constexpr std::size_t CHUNK_SIZE = 16 * 1024 * 1024; 
     CustomVector(char) buffer(CHUNK_SIZE);
     uint64_t total_read = 0;
 
@@ -121,19 +120,22 @@ uint64_t ReadPointsJson(std::string filename, CustomString& json)
 
     {
         TimeBandwidth("Read file", file_size); // Profile the whole file read
-        while (file)
+        while (!feof(file))
         {
-            file.read(buffer.data(), CHUNK_SIZE);
-            std::streamsize bytes_read = file.gcount();
+            size_t bytes_read = fread(buffer.data(), 1, CHUNK_SIZE, file);
             if (bytes_read > 0)
             {
-                json.append(buffer.data(), static_cast<size_t>(bytes_read));
+                json.append(buffer.data(), bytes_read);
                 total_read += static_cast<uint64_t>(bytes_read);
+            }
+            else
+            {
+                break;
             }
         }
     }
 
-    file.close();
+    fclose(file);
     return total_read;
 }
 
