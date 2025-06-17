@@ -15,6 +15,8 @@ class CustomMemoryAllocator
 public:
     using value_type = T;
     CustomMemoryAllocator() = default;
+    template <typename U>
+    CustomMemoryAllocator(const CustomMemoryAllocator<U>&) noexcept {}
     T* allocate(std::size_t n);
     void deallocate(T* p, std::size_t n);
     bool operator==(const CustomMemoryAllocator&) const noexcept { return true; }

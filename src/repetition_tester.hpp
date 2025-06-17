@@ -6,7 +6,7 @@ enum TestMode : uint32_t
     UNINITIALIZED,
     TESTING,
     COMPLETED,
-    ERROR,
+    ERRORR,
 };
 
 enum RepetitionValueType

@@ -57,7 +57,7 @@ void PrintResults(const RepetitionTestResults &results, uint64_t cpu_timer_freq,
 
 void Error(RepetitionTester &tester, char const *error_message)
 {
-    tester.mode_ = TestMode::ERROR;
+    tester.mode_ = TestMode::ERRORR;
     fprintf(stderr, "ERROR: %s\n", error_message);
 }
 
