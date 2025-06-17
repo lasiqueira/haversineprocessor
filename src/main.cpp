@@ -20,7 +20,7 @@ struct Point
     double x1;
     double y1;
 };
-uint64_t ReadPointsJson(std::string filename, CustomVector(Point)& points, CustomString& json);
+uint64_t ReadPointsJson(std::string filename, CustomString& json);
 void ProcessJson(CustomString& json_content, CustomVector(Point)& points);
 double SumHaversine(const CustomVector(double)& haversine_vals);
 
@@ -97,9 +97,11 @@ double SumHaversine(const CustomVector(double)& haversine_vals)
 	}
 	return sum;
 }
-uint64_t ReadPointsJson(std::string filename, CustomVector(Point)& points, CustomString& json)
+
+uint64_t ReadPointsJson(std::string filename, CustomString& json)
 {
     TimeFunction;
+
     std::ifstream file(filename.c_str(), std::ios::binary | std::ios::ate);
     if (!file.is_open())
     {
@@ -107,25 +109,34 @@ uint64_t ReadPointsJson(std::string filename, CustomVector(Point)& points, Custo
         return 0;
     }
 
-    uint64_t file_size = file.tellg();
-
-    CustomVector(char) buffer(file_size);
-
+    uint64_t file_size = static_cast<uint64_t>(file.tellg());
     file.seekg(0, std::ios::beg);
-    std::string line;
-    {   
-		TimeBandwidth("Read file", file_size);
-        if (!file.read(buffer.data(), file_size)) 
-        {
-            std::cerr << "  Could not read file: " << filename << std::endl;
-            return 0;
-        }
 
-    }  
-    json = CustomString(buffer.begin(), buffer.end());
-	file.close();
-    return file_size;
+    constexpr std::size_t CHUNK_SIZE = 8 * 1024 * 1024; // 8MB
+
+    CustomVector(char) buffer(CHUNK_SIZE);
+    uint64_t total_read = 0;
+
+    json.clear();
+
+    {
+        TimeBandwidth("Read file", file_size); // Profile the whole file read
+        while (file)
+        {
+            file.read(buffer.data(), CHUNK_SIZE);
+            std::streamsize bytes_read = file.gcount();
+            if (bytes_read > 0)
+            {
+                json.append(buffer.data(), static_cast<size_t>(bytes_read));
+                total_read += static_cast<uint64_t>(bytes_read);
+            }
+        }
+    }
+
+    file.close();
+    return total_read;
 }
+
 int main(int argc, char* argv[])
 {
     BeginProfile();
@@ -138,7 +149,7 @@ int main(int argc, char* argv[])
     CustomVector(Point) points;
         
     CustomString json;
-    uint64_t file_size = ReadPointsJson(filename, points, json);
+    uint64_t file_size = ReadPointsJson(filename, json);
 	if (file_size == 0)
 	{
 		return 1;
