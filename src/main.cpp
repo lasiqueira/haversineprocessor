@@ -1,9 +1,7 @@
 #include <vector>
 #include <iostream>
 #include <string>
-#include <fstream>
 #include <sstream>
-#include <iomanip>
 #include "haversine_formula.hpp"
 #include "perf_profiler.hpp"
 #include "custom_memory_allocator.hpp"
@@ -100,30 +98,33 @@ double SumHaversine(const CustomVector(double)& haversine_vals)
 uint64_t ReadPointsJson(std::string filename, CustomVector(Point)& points, CustomString& json)
 {
     TimeFunction;
-    std::ifstream file(filename.c_str(), std::ios::binary | std::ios::ate);
-    if (!file.is_open())
+    FILE* file = fopen(filename.c_str(), "rb");
+    if (!file)
     {
         std::cerr << "  Could not open file: " << filename << std::endl;
         return 0;
     }
 
-    uint64_t file_size = file.tellg();
+    fseek(file, 0, SEEK_END);
+    uint64_t file_size = static_cast<uint64_t>(ftell(file));
+    fseek(file, 0, SEEK_SET);
+
+	json.reserve(file_size);
 
     CustomVector(char) buffer(file_size);
 
-    file.seekg(0, std::ios::beg);
-    std::string line;
-    {   
-		TimeBandwidth("Read file", file_size);
-        if (!file.read(buffer.data(), file_size)) 
+    {
+        TimeBandwidth("Read file", file_size);
+        size_t bytes_read = fread(buffer.data(), 1, file_size, file);
+        if (bytes_read != file_size)
         {
             std::cerr << "  Could not read file: " << filename << std::endl;
+            fclose(file);
             return 0;
         }
-
-    }  
+    }
     json = CustomString(buffer.begin(), buffer.end());
-	file.close();
+    fclose(file);
     return file_size;
 }
 int main(int argc, char* argv[])

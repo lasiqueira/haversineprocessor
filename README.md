@@ -46,3 +46,17 @@ Total time: 12521.7707ms (timer freq 4199988700)
   Haversine[1]: 1344669437 (2.56%)  305.176mb at 0.93gb/s
   SumHaversine[1]: 25441458 (0.05%)  76.294mb at 12.30gb/s
 ```
+
+Results after replacing ifstream with fread:
+```
+File size: 1035913216 bytes
+Points: 10000000
+Haversine sum: 100101359712.7086486816406250
+
+Total time: 10772.8587ms (timer freq 4199900450)
+  ReadPointsJson[1]: 230773264 (0.51%, 1.51% w/children)
+  Read file[1]: 451660967 (1.00%)  987.924mb at 8.97gb/s
+  ProcessJson[1]: 43277345076 (95.65%)
+  Haversine[1]: 1253499786 (2.77%)  305.176mb at 1.00gb/s
+  SumHaversine[1]: 25014192 (0.06%)  76.294mb at 12.51gb/s
+  ```
