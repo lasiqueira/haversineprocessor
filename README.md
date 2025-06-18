@@ -60,3 +60,17 @@ Total time: 10772.8587ms (timer freq 4199900450)
   Haversine[1]: 1253499786 (2.77%)  305.176mb at 1.00gb/s
   SumHaversine[1]: 25014192 (0.06%)  76.294mb at 12.51gb/s
   ```
+
+Results after removing unnecessary copies and using a char buffer with pointers:
+```
+File size: 1035913216 bytes
+Points: 10000000
+Haversine sum: 100101359712.7086486816406250
+
+Total time: 3662.6324ms (timer freq 4199969310)
+  ReadPointsJson[1]: 3061840 (0.02%, 2.52% w/children)
+  Read file[1]: 384521195 (2.50%)  987.924mb at 10.54gb/s
+  ProcessJson[1]: 13693305759 (89.02%)  987.924mb at 0.30gb/s
+  Haversine[1]: 1271780895 (8.27%)  305.176mb at 0.98gb/s
+  SumHaversine[1]: 25212684 (0.16%)  76.294mb at 12.41gb/s
+ ```

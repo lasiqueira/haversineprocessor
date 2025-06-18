@@ -1,5 +1,6 @@
 #include <vector>
 #include <string>
+#include <algorithm>
 #include "haversine_formula.hpp"
 #include "perf_profiler.hpp"
 #include "custom_memory_allocator.hpp"
