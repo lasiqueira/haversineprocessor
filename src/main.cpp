@@ -1,14 +1,10 @@
 #include <vector>
-#include <iostream>
 #include <string>
-#include <sstream>
 #include "haversine_formula.hpp"
 #include "perf_profiler.hpp"
 #include "custom_memory_allocator.hpp"
 
-#define CustomString std::basic_string<char, std::char_traits<char>, CustomMemoryAllocator<char>>
 #define CustomVector(type) std::vector<type, CustomMemoryAllocator<type>>
-#define CustomStringStream std::basic_istringstream<char, std::char_traits<char>, CustomMemoryAllocator<char>>
 
 
 struct Point
@@ -18,73 +14,88 @@ struct Point
     double x1;
     double y1;
 };
-uint64_t ReadPointsJson(std::string filename, CustomVector(Point)& points, CustomString& json);
-void ProcessJson(CustomString& json_content, CustomVector(Point)& points);
+uint64_t ReadPointsJson(const std::string& filename, const CustomVector(char)& buffer);
+void ProcessJson(const char* data, size_t size, CustomVector(Point)& points);
 double SumHaversine(const CustomVector(double)& haversine_vals);
 
-void ProcessJson(CustomString& json_content, CustomVector(Point)& points)
+void ProcessJson(const char* data, size_t size, CustomVector(Point)& points)
 {
-    TimeBandwidth(__func__, points.size() * sizeof(Point));
-    size_t pos = json_content.find("\"points\":");
-    if (pos == CustomString::npos)
-    {
-        std::cerr << "  Invalid JSON format: missing \"points\" key" << std::endl;
+    TimeBandwidth(__func__, size);
+
+    const char* end = data + size;
+
+    const char* key = "\"points\"";
+    const char* pos = std::search(data, end, key, key + 8);
+
+    if (pos == end) {
+        std::cerr << "Missing \"points\" key\n";
         return;
     }
 
-    pos = json_content.find('[', pos);
-    if (pos == CustomString::npos)
-    {
-        std::cerr << "  Invalid JSON format: missing opening bracket for points array" << std::endl;
+    pos = std::find(pos, end, '[');
+    if (pos == end) {
+        std::cerr << "Missing '[' after \"points\"\n";
         return;
     }
+    ++pos; // skip '['
 
-    size_t end_pos = json_content.find(']', pos);
-    if (end_pos == CustomString::npos)
-    {
-        std::cerr << "  Invalid JSON format: missing closing bracket for points array" << std::endl;
-        return;
-    }
+    while (pos < end) {
+        // Skip to next '{'
+        while (pos < end && *pos != '{') ++pos;
+        if (pos == end) break;
+        ++pos; // skip '{'
 
-    CustomString points_array(json_content.begin() + pos + 1, json_content.begin() + end_pos);
-    CustomStringStream ss(points_array);
-    std::string point_str;
-    
-    while (std::getline(ss, point_str, '{'))
-    {
-        if (point_str.find('}') == CustomString::npos)
-            continue;
+        double x0 = 0, y0 = 0, x1 = 0, y1 = 0;
 
-        double x0 = 0;
-        double y0 = 0;
-        double x1 = 0;
-        double y1 = 0;
-        std::istringstream point_ss(point_str);
-        std::string token;
-        while (std::getline(point_ss, token, ','))
-        {
-            size_t colon_pos = token.find(':');
-            if (colon_pos == std::string::npos)
-                continue;
+        while (pos < end && *pos != '}') {
+            // Skip whitespace
+            while (pos < end && isspace(*pos)) ++pos;
 
-            std::string key = token.substr(0, colon_pos);
-            std::string value = token.substr(colon_pos + 1);
+            if (*pos != '"') break; // expected a key
 
-            key.erase(std::remove_if(key.begin(), key.end(), isspace), key.end());
-            value.erase(std::remove_if(value.begin(), value.end(), isspace), value.end());
+            ++pos;
+            const char* key_start = pos;
+            while (pos < end && *pos != '"') ++pos;
+            std::string_view key(key_start, pos - key_start);
+            ++pos; // skip closing quote
 
-            if (key == "\"x0\"")
-                x0 = std::stod(value);
-            else if (key == "\"y0\"")
-                y0 = std::stod(value);
-            else if (key == "\"x1\"")
-                x1 = std::stod(value);
-            else if (key == "\"y1\"")
-                y1 = std::stod(value);
+            // Skip colon
+            while (pos < end && *pos != ':') ++pos;
+            if (pos == end) break;
+            ++pos;
+
+            while (pos < end && isspace(*pos)) ++pos;
+
+            // Parse number
+            const char* val_start = pos;
+            while (pos < end && (*pos == '-' || isdigit(*pos) || *pos == '.')) ++pos;
+            std::string_view val(val_start, pos - val_start);
+
+            double num = std::strtod(val.data(), nullptr);
+
+            if (key == "x0") x0 = num;
+            else if (key == "y0") y0 = num;
+            else if (key == "x1") x1 = num;
+            else if (key == "y1") y1 = num;
+
+            // Skip until next key or end of object
+            while (pos < end && *pos != ',' && *pos != '}') ++pos;
+            if (*pos == ',') ++pos;
         }
+
         points.emplace_back(x0, y0, x1, y1);
+
+        // Skip past '}'
+        while (pos < end && *pos != '}') ++pos;
+        if (pos < end) ++pos;
+
+        // Check if there's a closing ']'
+        while (pos < end && isspace(*pos)) ++pos;
+        if (*pos == ']') break;
     }
- }
+}
+
+
 double SumHaversine(const CustomVector(double)& haversine_vals)
 {
     TimeBandwidth(__func__, haversine_vals.size() * sizeof(double));
@@ -95,12 +106,12 @@ double SumHaversine(const CustomVector(double)& haversine_vals)
 	}
 	return sum;
 }
-uint64_t ReadPointsJson(std::string filename, CustomVector(Point)& points, CustomString& json)
+
+uint64_t ReadPointsJson(const std::string& filename, CustomVector(char)& buffer)
 {
     TimeFunction;
     FILE* file = fopen(filename.c_str(), "rb");
-    if (!file)
-    {
+    if (!file) {
         std::cerr << "  Could not open file: " << filename << std::endl;
         return 0;
     }
@@ -109,24 +120,21 @@ uint64_t ReadPointsJson(std::string filename, CustomVector(Point)& points, Custo
     uint64_t file_size = static_cast<uint64_t>(ftell(file));
     fseek(file, 0, SEEK_SET);
 
-	json.reserve(file_size);
-
-    CustomVector(char) buffer(file_size);
-
+    buffer.reserve(file_size); // allocate exactly
     {
         TimeBandwidth("Read file", file_size);
-        size_t bytes_read = fread(buffer.data(), 1, file_size, file);
-        if (bytes_read != file_size)
-        {
-            std::cerr << "  Could not read file: " << filename << std::endl;
+        size_t read_size = fread(buffer.data(), 1, file_size, file);
+        if (read_size != file_size) {
+            std::cerr << "  Read size mismatch\n";
             fclose(file);
             return 0;
         }
     }
-    json = CustomString(buffer.begin(), buffer.end());
+
     fclose(file);
     return file_size;
 }
+
 int main(int argc, char* argv[])
 {
     BeginProfile();
@@ -138,14 +146,14 @@ int main(int argc, char* argv[])
     std::string filename = argv[1];
     CustomVector(Point) points;
         
-    CustomString json;
-    uint64_t file_size = ReadPointsJson(filename, points, json);
+    CustomVector(char) json;
+    uint64_t file_size = ReadPointsJson(filename, json);
 	if (file_size == 0)
 	{
 		return 1;
 	}
 	
-    ProcessJson(json, points);
+    ProcessJson(json.data(), file_size, points);
     CustomVector(double) haversine_vals;
     haversine_vals.reserve(points.size());
     {
